@@ -1,0 +1,10 @@
+{
+	"realNumber": 0.14159265358,
+	"integer": 3,
+	"string": "Hello World",
+	"subOne": {
+		"realNumber": 0.71278,
+		"longInteger": 2
+	}
+	
+}
