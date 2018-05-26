@@ -1,7 +1,9 @@
 package com.digiturtle.jsonbeans;
 
 import java.lang.reflect.Array;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Stack;
@@ -15,6 +17,25 @@ public class JSONBeans {
 	public interface ClassConstructor {
 		
 		public Object newInstance(Class<?> type);
+		
+	}
+	
+	public static class DefaultClassConstructor implements ClassConstructor {
+
+		@Override
+		public Object newInstance(Class<?> type) {
+			if (!type.isAnnotationPresent(JSONSerializable.class)) {
+				throw new IllegalArgumentException("Cannot read classes without the @JSONSerializable annotation!");
+			}
+			try {
+				Constructor<?> defaultConstructor = type.getConstructor();
+				return defaultConstructor.newInstance();
+			} catch (NoSuchMethodException | SecurityException e) {
+				throw new IllegalStateException(type + " has no default constructor", e);
+			} catch (InstantiationException | IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+				throw new IllegalStateException(e);
+			}
+		}
 		
 	}
 	
@@ -67,11 +88,8 @@ public class JSONBeans {
 			Object object = instantiationStack.peek();
 			if (!objectEntry.isEmpty()) {
 				try {
-					System.out.println(object.getClass());
-					System.out.println(objectEntry.peek());
 					Field field = object.getClass().getDeclaredField(objectEntry.peek());
 					if (field.getType().isArray()) {
-						listStack.push(new ArrayList<>());
 						instantiationStack.push(field.getType().getComponentType().newInstance());
 					} else {
 						instantiationStack.push(field.getType().newInstance());
@@ -87,14 +105,14 @@ public class JSONBeans {
 			if (instantiationStack.size() > 1) {
 				Object object = instantiationStack.pop();
 				Object o = instantiationStack.peek();
-				System.out.println(o.getClass());
 				try {
-					Field field = o.getClass().getDeclaredField(objectEntry.pop());
+					Field field = o.getClass().getDeclaredField(objectEntry.peek());
 					field.setAccessible(true);
 					if (field.getType().isArray()) {
 						listStack.peek().add(object);
 					} else {
-						field.set(o, object);			
+						field.set(o, object);
+						objectEntry.pop();
 					}
 				} catch (IllegalArgumentException | IllegalAccessException | NoSuchFieldException | SecurityException e) {
 					throw new IllegalStateException(e);
@@ -122,6 +140,7 @@ public class JSONBeans {
 					else if (field.getName().equals("boolean")) {
 						field.setBoolean(object, value);
 					}
+					objectEntry.pop();
 				}
 			} catch (IllegalArgumentException | IllegalAccessException | NoSuchFieldException | SecurityException e) {
 				throw new IllegalStateException(e);
@@ -160,6 +179,7 @@ public class JSONBeans {
 					else if (field.getGenericType().getTypeName().equals("double")) {
 						field.setDouble(object, value);
 					}
+					objectEntry.pop();
 				}
 			} catch (IllegalArgumentException | IllegalAccessException | NoSuchFieldException | SecurityException e) {
 				throw new IllegalStateException(e);
@@ -170,7 +190,6 @@ public class JSONBeans {
 		public void longLiteral(long value) {
 			Object object = instantiationStack.peek();
 			try {
-				System.out.println(object.getClass());
 				Field field = object.getClass().getDeclaredField(objectEntry.peek());
 				field.setAccessible(true);
 				if (field.getType().isArray()) {
@@ -211,6 +230,7 @@ public class JSONBeans {
 					else if (field.getType().getComponentType().getName().equals("short")) {
 						field.setShort(object, (short) value);
 					}
+					objectEntry.pop();
 				}
 			} catch (IllegalArgumentException | IllegalAccessException | NoSuchFieldException | SecurityException e) {
 				throw new IllegalStateException(e);
@@ -219,7 +239,6 @@ public class JSONBeans {
 
 		@Override
 		public void stringLiteral(String value) {
-			System.out.println(value);
 			Object object = instantiationStack.peek();
 			try {
 				Field field = object.getClass().getDeclaredField(objectEntry.peek());
@@ -227,7 +246,8 @@ public class JSONBeans {
 				if (field.getType().isArray()) {
 					listStack.peek().add(value);
 				} else {
-					field.set(object, value);	
+					field.set(object, value);
+					objectEntry.pop();	
 				}
 			} catch (IllegalArgumentException | IllegalAccessException | NoSuchFieldException | SecurityException e) {
 				throw new IllegalStateException(e);
@@ -244,6 +264,7 @@ public class JSONBeans {
 					listStack.peek().add(null);
 				} else {
 					field.set(object, null);
+					objectEntry.pop();
 				}
 			} catch (IllegalArgumentException | IllegalAccessException | NoSuchFieldException | SecurityException e) {
 				throw new IllegalStateException(e);
@@ -264,7 +285,7 @@ public class JSONBeans {
 		public void endList() {
 			Object object = instantiationStack.peek();
 			try {
-				Field field = object.getClass().getDeclaredField(objectEntry.peek());
+				Field field = object.getClass().getDeclaredField(objectEntry.pop());
 				field.setAccessible(true);
 				ArrayList<Object> list = listStack.pop();
 				Object arr = Array.newInstance(field.getType().getComponentType(), list.size());
@@ -303,7 +324,6 @@ public class JSONBeans {
 					continue;
 				}
 				field.setAccessible(true);
-				System.out.println(field.getName());
 				if (written) {
 					buffer.append(",");
 				}
@@ -551,13 +571,7 @@ public class JSONBeans {
 	@SuppressWarnings("unchecked")
 	public static <T> T readBean(char[] letters, Class<T> type, ClassConstructor constructor) {
 		if (constructor == null) {
-			constructor = (t) -> {
-				try {
-					return t.newInstance();
-				} catch (InstantiationException | IllegalAccessException e) {
-					throw new IllegalStateException(e);
-				}
-			};
+			constructor = new DefaultClassConstructor();
 		}
 		BeanReader reader = new BeanReader();
 		try {

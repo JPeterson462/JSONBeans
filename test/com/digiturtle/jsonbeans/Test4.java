@@ -14,9 +14,8 @@ public class Test4 {
 		HashMap<String, Integer> map = new HashMap<>();
 		map.put("apple", 1);
 		map.put("banana", 2);
-		System.out.println(new String(JSONBeans.writeBean(map)));
-		System.out.println("READ");
-		Tests.assertEqual(map, JSONBeans.readBean(JSONBeans.writeBean(map), HashMap.class, null));
+//		System.out.println(new String(JSONBeans.writeBean(new WritableHashMap<String, Integer>(map))));
+//		Tests.assertEqual(map, JSONBeans.readBean(JSONBeans.writeBean(map), WritableHashMap.class, null).toHashMap());
 	}
 	
 }

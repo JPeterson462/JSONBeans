@@ -15,7 +15,7 @@ public class Test5 {
 			three.arr[i] = new ObjectThree.ObjectThreeSubOne();
 			three.arr[i].n = i + 1;
 		}
-		System.out.println(three);
+		three.arr2 = new int[] { 1, 2, 3 };
 		System.out.println(JSONBeans.writeBean(three));
 		System.out.println(JSONBeans.readBean(JSONBeans.writeBean(three), ObjectThree.class, null));
 	}
