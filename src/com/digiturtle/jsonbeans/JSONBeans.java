@@ -24,9 +24,6 @@ public class JSONBeans {
 
 		@Override
 		public Object newInstance(Class<?> type) {
-			if (!type.isAnnotationPresent(JSONSerializable.class)) {
-				throw new IllegalArgumentException("Cannot read classes without the @JSONSerializable annotation!");
-			}
 			try {
 				Constructor<?> defaultConstructor = type.getConstructor();
 				return defaultConstructor.newInstance();
